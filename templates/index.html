@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Online Compiler</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>    <style>
+        #console {
+            width: 80%;
+            height: 300px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            overflow-y: scroll;
+            font-family: monospace;
+            background-color: #f8f8f8;
+        }
+    </style>
+</head>
+<body>
+    <textarea id="code" rows="20" cols="80"></textarea><br>
+    <button onclick="compileAndRun()">Compile & Run</button>
+    <!-- Interactive console -->
+    <div id="console"></div>
+    <textarea id="to_send" rows="1" cols="80"></textarea><br>
+    <button onclick="send()">Send</button>
+
+
+    <script>
+        const socket = io();
+        var id2 = 0;
+
+        var colors = {
+            'info': '#007bff',
+            'error': '#dc3545',
+            'pgout': '#28a745',
+            'pgerr': '#dc3545',
+            'echo': '#6c757d',
+        }
+
+        function compileAndRun() {
+            const code = document.getElementById('code').value;
+            id2 = Math.random().toString(36).substring(7);
+            document.getElementById('console').innerHTML = '';  // Clear previous output
+            socket.emit('run', { code: code, id: id2});
+            console.log('Sent: ' + code);
+        }
+
+        function send() {
+            const to_send = document.getElementById('to_send').value;
+            socket.emit('input', { to_send: to_send, id: id2});
+            console.log('Sent: ' + to_send);
+            document.getElementById('to_send').value = '';
+        }
+
+        console.log("registering event listener");
+
+        socket.on(`output2`, function(data) {
+            if (data.id != id2) {
+                return;
+            }
+            var scroll = document.getElementById('console').scrollHeight;
+            console.log('Received: ' + data.data);
+            document.getElementById('console').innerHTML += `<span style="color: ${colors[data.type]};">${data.data}</span><br>`;
+            document.getElementById('console').scrollTop = scroll;
+        });
+
+        socket.on('connect', () => {
+            console.log('Socket connected');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Socket disconnected');
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('Connection error:', err);
+        });
+
+        console.log("Event listeners registered.");
+    </script>
+</body>
+</html>
