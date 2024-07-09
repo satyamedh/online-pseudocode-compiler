@@ -5,10 +5,12 @@ from flask_socketio import SocketIO
 import subprocess
 import os
 import select
+import secret_keys
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, logger=True, engineio_logger=True, async_mode='gevent')
+app.config['SECRET_KEY'] = secret_keys.SECRET_KEY
+# socketio = SocketIO(app, logger=True, engineio_logger=True, async_mode='gevent')
+socketio = SocketIO(app, async_mode='gevent')
 
 processes = {}
 
