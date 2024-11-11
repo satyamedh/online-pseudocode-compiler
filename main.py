@@ -36,34 +36,31 @@ def run_code(data):
     code = data['code']
     # store the code in a file in the /tmp directory
     filename = str(data['id'])
-    os.mkdir(f'/tmp/{filename}')
-    with open(f'/tmp/{filename}/code.psc', 'w') as f:
-        f.write(code)
 
-    # copy dockerfile to folder
-    # os.system(f'cp docker/Dockerfile tmp/{filename}/')
-    prc = subprocess.Popen(['cp', 'docker/Dockerfile', f'/tmp/{filename}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # git clone the compiler - https://github.com/satyamedh/CIE-Pseudocode-compiler
+    os.mkdir(f'/tmp/{filename}')
+    prc = subprocess.Popen(['git', 'clone', 'https://github.com/satyamedh/CIE-Pseudocode-compiler', f'/tmp/{filename}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     prc.wait()
     socketio.emit('output2', {'data': prc.stdout.read().decode('utf-8'), 'id': data['id'], 'type': 'info'}, callback=ack)
     socketio.emit('output2', {'data': prc.stderr.read().decode('utf-8'), 'id': data['id'], 'type': 'error'}, callback=ack)
 
-    def docker_stuff():
-        # build the docker image
-        # os.system(f'docker build -t {filename} /tmp/{filename}')
-        prc = subprocess.Popen(['docker', 'build', '-t', filename, f'/tmp/{filename}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        prc.wait()
-        socketio.emit('output2', {'data': prc.stdout.read().decode('utf-8'), 'id': data['id'], 'type': 'info'}, callback=ack)
-        socketio.emit('output2', {'data': prc.stderr.read().decode('utf-8'), 'id': data['id'], 'type': 'error'}, callback=ack)
+    # copy the code to the compiler directory
+    with open(f'/tmp/{filename}/code.psc', 'w') as f:
+        f.write(code)
 
-        socketio.emit('output2', {'data': '\n\nDocker build done...', 'id': data['id'], 'type': 'info'}, callback=ack)
-        # run the docker image in a subprocess. Have live input and output using socketio
-        # f'docker run --rm -i -e PYTHONUNBUFFERED=1 {filename}'
-        process = subprocess.Popen(['docker', 'run', '--rm', '-i', '-e', 'PYTHONUNBUFFERED=1', filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+    def compile_stuff():
+        # run the program in a subprocess. Have live input and output using socketio
+        # python3 main.py code.psc -rd
+        # cwd = f'/tmp/{filename}'
+        # 'firejail', '--noprofile',  f'--private=/tmp/{data["id"]}', '--net=none', '--whitelist=/usr/bin/python3', '--whitelist=/usr/bin/g++', '--rlimit-as=1024000', '--timeout=00:05:00',
+        process = subprocess.Popen(['python3', 'main.py', 'code.psc', '-rd'], cwd=f'/tmp/{filename}', stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
         processes[filename] = process
         while True:
             output = read_pipe_without_blocking(process.stdout)
             if output == '' and process.poll() is not None:
-                socketio.emit('output2', {'data': 'Docker exited...\n Session over', 'id': data['id'], 'type': 'info'}, callback=ack)
+                socketio.emit('output2', {'data': 'Program exited...\n Session over', 'id': data['id'], 'type': 'info'}, callback=ack)
+                # delete files
+                os.remove(f'/tmp/{filename}/code.psc')
                 break
             if output:
                 socketio.emit('output2', {'data': output, 'id': data['id'], 'type': 'pgout'}, callback=ack)
@@ -71,9 +68,9 @@ def run_code(data):
             err = read_pipe_without_blocking(process.stderr)
             if err:
                 socketio.emit('output2', {'data': err, 'id': data['id'], 'type': 'pgerr'}, callback=ack)
-    socketio.emit('output2', {'data': 'Starting Docker...', 'id': data['id'], 'type': 'info'}, callback=ack)
+    socketio.emit('output2', {'data': 'Starting program...', 'id': data['id'], 'type': 'info'}, callback=ack)
 
-    threading.Thread(target=docker_stuff).start()
+    threading.Thread(target=compile_stuff).start()
 
 
 @socketio.on('input')
@@ -88,4 +85,6 @@ def input_code(data):
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000)
+    # If the environment variable DBG is set, use port 6969
+    port = 6969 if 'DBG' in os.environ else 5000
+    socketio.run(app, host='0.0.0.0', port=port)

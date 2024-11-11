@@ -14,6 +14,7 @@
             background-color: #f8f8f8;
         }
     </style>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.3.4/purify.min.js"></script>
 </head>
 <body>
     <textarea id="code" rows="20" cols="80"></textarea><br>
@@ -59,7 +60,8 @@
             }
             var scroll = document.getElementById('console').scrollHeight;
             console.log('Received: ' + data.data);
-            document.getElementById('console').innerHTML += `<span style="color: ${colors[data.type]};">${data.data}</span><br>`;
+            var sanitized = DOMPurify.sanitize(data.data);
+            document.getElementById('console').innerHTML += `<span style="color: ${colors[data.type]};">${sanitized}</span><br>`;
             document.getElementById('console').scrollTop = scroll;
         });
 
